@@ -168,9 +168,13 @@ jobs:
 
       - name: Deployment status
         if: always()
+        shell: bash
         run: |
-          if [ "${{ steps.deployment.outcome }}" = "success" ]; then
+          if [[ "${{ steps.deployment.outcome }}" == "success" ]]; then
             echo "✅ Deployment successful"
             echo "🌍 Site available at: ${{ steps.deployment.outputs.page_url }}"
           else
             echo "❌ Deployment failed"
+            echo "Deployment outcome: ${{ steps.deployment.outcome }}"
+            exit 1
+          fi
