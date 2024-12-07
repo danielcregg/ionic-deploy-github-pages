@@ -162,38 +162,6 @@ jobs:
         uses: actions/deploy-pages@v4
         timeout-minutes: 5  # Add timeout for deployment
 
-      - name: Update documentation with deployment URL
-        if: success()
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          DEPLOY_URL="${{ steps.deployment.outputs.page_url }}"
-          REPO_FULL_NAME="${GITHUB_REPOSITORY}"
-          REPO_OWNER="${GITHUB_REPOSITORY_OWNER}"
-          REPO_NAME="${GITHUB_REPOSITORY#*/}"
-          
-          # Update or create README.md
-          cat > README.md << EOL
-          # Ionic GitHub Pages Demo
-          
-          [![Deploy Ionic App to GitHub Pages](https://github.com/${REPO_FULL_NAME}/actions/workflows/deploy.yml/badge.svg)](https://github.com/${REPO_FULL_NAME}/actions/workflows/deploy.yml)
-          
-          ## 🌐 Live Demo
-          [View Demo](${DEPLOY_URL})
-          EOL
-          
-          # Create GitHub Pages demo info file
-          echo "# GitHub Pages Demo Information" > github-pages-demo.md
-          echo "Last deployed: $(date)" >> github-pages-demo.md
-          echo "🌍 Live Demo: $DEPLOY_URL" >> github-pages-demo.md
-          
-          # Setup git and commit changes
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add README.md github-pages-demo.md
-          git commit -m "Update documentation and demo links [skip ci]" || true
-          git push origin HEAD:${GITHUB_REF#refs/heads/} || true
-
       - name: Deployment status
         if: always()
         shell: bash
@@ -201,10 +169,8 @@ jobs:
           if [[ "${{ steps.deployment.outcome }}" == "success" ]]; then
             echo "✅ Deployment successful"
             echo "🌍 Site available at: ${{ steps.deployment.outputs.page_url }}"
-            echo "📝 Deployment information updated in github-pages-demo.md"
             exit 0
           else
             echo "❌ Deployment failed"
             echo "Deployment outcome: ${{ steps.deployment.outcome }}"
             exit 1
-          fi
