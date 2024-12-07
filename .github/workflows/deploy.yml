@@ -182,15 +182,15 @@ jobs:
           [View Demo](${DEPLOY_URL})
           EOL
           
-          # Create deployment info file
-          echo "# Deployment Information" > DEPLOYMENT.md
-          echo "Last deployed: $(date)" >> DEPLOYMENT.md
-          echo "🌍 Live Demo: $DEPLOY_URL" >> DEPLOYMENT.md
+          # Create GitHub Pages demo info file
+          echo "# GitHub Pages Demo Information" > github-pages-demo.md
+          echo "Last deployed: $(date)" >> github-pages-demo.md
+          echo "🌍 Live Demo: $DEPLOY_URL" >> github-pages-demo.md
           
           # Setup git and commit changes
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add README.md DEPLOYMENT.md
+          git add README.md github-pages-demo.md
           git commit -m "Update documentation and demo links [skip ci]" || true
           git push origin HEAD:${GITHUB_REF#refs/heads/} || true
 
@@ -201,7 +201,7 @@ jobs:
           if [[ "${{ steps.deployment.outcome }}" == "success" ]]; then
             echo "✅ Deployment successful"
             echo "🌍 Site available at: ${{ steps.deployment.outputs.page_url }}"
-            echo "📝 Deployment information updated in DEPLOYMENT.md"
+            echo "📝 Deployment information updated in github-pages-demo.md"
             exit 0
           else
             echo "❌ Deployment failed"
