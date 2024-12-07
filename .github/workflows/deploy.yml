@@ -15,9 +15,10 @@ on:
 
 # Required permissions for GitHub Pages
 permissions:
-  contents: read
+  contents: write      # Allow writing files
   pages: write
   id-token: write
+  metadata: write     # Allow updating repo description
 
 # Global environment variables
 env:
@@ -169,25 +170,30 @@ jobs:
       - name: Update documentation with deployment URL
         if: success()
         env:
-          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Changed from GH_TOKEN
         run: |
-          # Get the deployment URL
           DEPLOY_URL="${{ steps.deployment.outputs.page_url }}"
           
-          # Update repository description (shows on GitHub repository page)
-          gh repo edit --description "🌐 Live Demo: $DEPLOY_URL"
-          
-          # Create or update the deployment file
+          # Create deployment info file
           echo "# Deployment Information" > DEPLOYMENT.md
           echo "Last deployed: $(date)" >> DEPLOYMENT.md
           echo "🌍 Live Demo: $DEPLOY_URL" >> DEPLOYMENT.md
           
-          # Commit and push the changes if there are any
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
-          git add DEPLOYMENT.md
-          git commit -m "Update deployment information [skip ci]" || echo "No changes to commit"
-          git push || echo "No changes to push"
+          # Try to update repo description, fallback silently if it fails
+          gh repo edit --description "🌐 Live Demo: $DEPLOY_URL" || true
+          
+          # Setup git configuration
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Commit and push changes
+          if [[ -n $(git status --porcelain DEPLOYMENT.md) ]]; then
+            git add DEPLOYMENT.md
+            git commit -m "Update deployment information [skip ci]"
+            git push origin HEAD:${GITHUB_REF#refs/heads/}
+          else
+            echo "No changes to commit"
+          fi
 
       - name: Deployment status
         if: always()
@@ -201,4 +207,3 @@ jobs:
             echo "❌ Deployment failed"
             echo "Deployment outcome: ${{ steps.deployment.outcome }}"
             exit 1
-          fi
