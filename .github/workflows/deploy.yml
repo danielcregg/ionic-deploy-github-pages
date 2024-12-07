@@ -18,7 +18,6 @@ permissions:
   contents: write      # Allow writing files
   pages: write
   id-token: write
-  metadata: write     # Allow updating repo description
 
 # Global environment variables
 env:
