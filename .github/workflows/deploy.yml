@@ -166,6 +166,29 @@ jobs:
         uses: actions/deploy-pages@v4
         timeout-minutes: 5  # Add timeout for deployment
 
+      - name: Update documentation with deployment URL
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Get the deployment URL
+          DEPLOY_URL="${{ steps.deployment.outputs.page_url }}"
+          
+          # Update repository description (shows on GitHub repository page)
+          gh repo edit --description "🌐 Live Demo: $DEPLOY_URL"
+          
+          # Create or update the deployment file
+          echo "# Deployment Information" > DEPLOYMENT.md
+          echo "Last deployed: $(date)" >> DEPLOYMENT.md
+          echo "🌍 Live Demo: $DEPLOY_URL" >> DEPLOYMENT.md
+          
+          # Commit and push the changes if there are any
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git add DEPLOYMENT.md
+          git commit -m "Update deployment information [skip ci]" || echo "No changes to commit"
+          git push || echo "No changes to push"
+
       - name: Deployment status
         if: always()
         shell: bash
@@ -173,6 +196,7 @@ jobs:
           if [[ "${{ steps.deployment.outcome }}" == "success" ]]; then
             echo "✅ Deployment successful"
             echo "🌍 Site available at: ${{ steps.deployment.outputs.page_url }}"
+            echo "📝 Deployment information updated in DEPLOYMENT.md"
           else
             echo "❌ Deployment failed"
             echo "Deployment outcome: ${{ steps.deployment.outcome }}"
