@@ -202,7 +202,9 @@ jobs:
             echo "✅ Deployment successful"
             echo "🌍 Site available at: ${{ steps.deployment.outputs.page_url }}"
             echo "📝 Deployment information updated in DEPLOYMENT.md"
+            exit 0
           else
             echo "❌ Deployment failed"
             echo "Deployment outcome: ${{ steps.deployment.outcome }}"
             exit 1
+          fi
