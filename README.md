@@ -1,6 +1,20 @@
-# Ionic GitHub Pages Demo
+# Ionic GitHub Pages Deployment
 
 [![Deploy Ionic App to GitHub Pages](https://github.com/danielcregg/ionic-deploy-github-pages/actions/workflows/deploy.yml/badge.svg)](https://github.com/danielcregg/ionic-deploy-github-pages/actions/workflows/deploy.yml)
 
-## 🌐 Live Demo
-[View this Ionic App on GitHub Pages](https://danielcregg.github.io/ionic-deploy-github-pages/)
+Deploy your Ionic Angular app to GitHub Pages automatically using GitHub Actions.
+
+## 🚀 Setup Instructions
+
+1. **Create GitHub Actions Workflow**
+   
+   Configure GitHub Repository
+
+Navigate to Settings → Pages
+Set Source to GitHub Actions
+
+⚡ Features
+Automatic deployment on push to the main branch
+Manual deployment trigger via GitHub Actions
+SPA routing support for GitHub Pages
+Efficient caching for faster builds
