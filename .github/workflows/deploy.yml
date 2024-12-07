@@ -36,7 +36,7 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04  # Explicitly set Ubuntu version
     timeout-minutes: 15  # Add timeout to prevent hanging workflows
 
     steps:
@@ -156,7 +156,7 @@ jobs:
           enablement: pages
           
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v3  # Revert to v3 as v4 is not available
         with:
           path: '${{ env.APP_PATH }}/www'
           retention-days: 1  # Reduce retention period for artifacts
