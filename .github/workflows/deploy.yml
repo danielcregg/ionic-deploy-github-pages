@@ -79,52 +79,37 @@ jobs:
       - name: Build Ionic application
         working-directory: ${{ env.APP_PATH }}
         run: |
-          # Create or update the copy-base-href.js file
-          cat > copy-base-href.js << 'EOF'
-          const fs = require('fs');
-          const path = require('path');
-          
-          // Read the index.html
-          const indexPath = path.join(__dirname, 'www', 'index.html');
-          let content = fs.readFileSync(indexPath, 'utf-8');
-          
-          // Add base href if not present
-          if (!content.includes('<base href=')) {
-            content = content.replace('<head>', '<head>\n    <base href="/">');
-          }
-          
-          // Ensure proper base href value
-          content = content.replace(
-            /<base href=".*?">/,
-            `<base href="/${process.env.REPO_NAME}/">`
-          );
-          
-          // Add script for routing fallback
-          if (!content.includes('type="text/javascript">window.location.href')) {
-            const script = `
-            <script type="text/javascript">
-              // Handle GitHub Pages routing fallback
-              (function() {
-                const path = window.location.pathname.slice(1);
-                const baseHref = '/${process.env.REPO_NAME}/';
-                if (!path.startsWith(baseHref.slice(1))) return;
-                const route = path.slice(baseHref.length - 1);
-                if (route && !route.includes('.')) {
-                  window.location.href = baseHref;
-                }
-              })();
-            </script>`;
-            content = content.replace('</head>', script + '\n  </head>');
-          }
-          
-          fs.writeFileSync(indexPath, content);
-          EOF
-          
-          # Build the app
+          # First build the app
           ionic build --configuration=$ANGULAR_CONFIG -- --base-href /${{ env.REPO_NAME }}/
           
-          # Run the script to ensure proper routing
-          node copy-base-href.js
+          # Navigate to build output
+          cd www
+          
+          # Create 404.html from index.html
+          cp index.html 404.html
+          
+          # Add routing handler to 404.html for handling redirects
+          sed -i '/<head>/a\
+          <script>\
+            (function() {\
+              var redirect = sessionStorage.redirect;\
+              delete sessionStorage.redirect;\
+              if (redirect && redirect != location.href) {\
+                history.replaceState(null, null, redirect);\
+              }\
+            })();\
+          </script>' 404.html
+          
+          # Add routing handler to index.html for saving route state
+          sed -i '/<head>/a\
+          <script>\
+            (function() {\
+              var l = location.href;\
+              if (l.indexOf("?") > -1) {\
+                sessionStorage.redirect = l.substr(0, l.indexOf("?"));\
+              }\
+            })();\
+          </script>' index.html
 
       # Validation phase
       - name: Verify build output
