@@ -4,6 +4,12 @@ name: Deploy Ionic App to GitHub Pages
 on:
   push:
     branches: ["main"]
+    paths-ignore:
+      - '**/*.md'
+      - '**/*.MD'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.gitignore'
   workflow_dispatch:
 
 # Required permissions for GitHub Pages deployment
@@ -49,6 +55,8 @@ jobs:
             exit 1
           fi
           echo "APP_PATH=$APP_PATH" >> $GITHUB_ENV
+          # Also store the absolute path for caching
+          echo "PACKAGE_JSON_PATH=$(realpath $APP_PATH/package-lock.json)" >> $GITHUB_ENV
 
       # Dependencies installation phase
       - name: Setup Node.js ${{ env.NODE_VERSION }}
@@ -56,7 +64,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: '${{ env.APP_PATH }}/package-lock.json'
+          cache-dependency-path: ${{ env.PACKAGE_JSON_PATH }}
 
       - name: Install dependencies
         working-directory: ${{ env.APP_PATH }}
