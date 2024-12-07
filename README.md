@@ -4,5 +4,3 @@
 
 ## 🌐 Live Demo
 [View Demo](https://danielcregg.github.io/ionic-deploy-github-pages/)
-
-// ...rest of your existing README content...
