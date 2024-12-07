@@ -166,11 +166,13 @@ jobs:
         if: always()
         shell: bash
         run: |
-          if [[ "${{ steps.deployment.outcome }}" == "success" ]]; then
+          DEPLOY_OUTCOME="${{ steps.deployment.outcome }}"
+          if [[ "$DEPLOY_OUTCOME" == "success" ]]; then
             echo "✅ Deployment successful"
             echo "🌍 Site available at: ${{ steps.deployment.outputs.page_url }}"
             exit 0
           else
             echo "❌ Deployment failed"
-            echo "Deployment outcome: ${{ steps.deployment.outcome }}"
+            echo "Deployment outcome: $DEPLOY_OUTCOME"
             exit 1
+          fi
