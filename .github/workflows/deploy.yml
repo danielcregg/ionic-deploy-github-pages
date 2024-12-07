@@ -21,6 +21,8 @@ permissions:
 # Environment variables used across the workflow
 env:
   NODE_VERSION: '18'
+  # Add configuration for handling different Angular configurations
+  ANGULAR_CONFIG: 'production'
 
 # Prevent concurrent deployments
 concurrency:
@@ -76,7 +78,53 @@ jobs:
       # Build phase
       - name: Build Ionic application
         working-directory: ${{ env.APP_PATH }}
-        run: ionic build -- --base-href /${{ env.REPO_NAME }}/
+        run: |
+          # Create or update the copy-base-href.js file
+          cat > copy-base-href.js << 'EOF'
+          const fs = require('fs');
+          const path = require('path');
+          
+          // Read the index.html
+          const indexPath = path.join(__dirname, 'www', 'index.html');
+          let content = fs.readFileSync(indexPath, 'utf-8');
+          
+          // Add base href if not present
+          if (!content.includes('<base href=')) {
+            content = content.replace('<head>', '<head>\n    <base href="/">');
+          }
+          
+          // Ensure proper base href value
+          content = content.replace(
+            /<base href=".*?">/,
+            `<base href="/${process.env.REPO_NAME}/">`
+          );
+          
+          // Add script for routing fallback
+          if (!content.includes('type="text/javascript">window.location.href')) {
+            const script = `
+            <script type="text/javascript">
+              // Handle GitHub Pages routing fallback
+              (function() {
+                const path = window.location.pathname.slice(1);
+                const baseHref = '/${process.env.REPO_NAME}/';
+                if (!path.startsWith(baseHref.slice(1))) return;
+                const route = path.slice(baseHref.length - 1);
+                if (route && !route.includes('.')) {
+                  window.location.href = baseHref;
+                }
+              })();
+            </script>`;
+            content = content.replace('</head>', script + '\n  </head>');
+          }
+          
+          fs.writeFileSync(indexPath, content);
+          EOF
+          
+          # Build the app
+          ionic build --configuration=$ANGULAR_CONFIG -- --base-href /${{ env.REPO_NAME }}/
+          
+          # Run the script to ensure proper routing
+          node copy-base-href.js
 
       # Validation phase
       - name: Verify build output
