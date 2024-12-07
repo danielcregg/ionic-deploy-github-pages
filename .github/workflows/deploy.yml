@@ -206,3 +206,4 @@ jobs:
             echo "❌ Deployment failed"
             echo "Deployment outcome: ${{ steps.deployment.outcome }}"
             exit 1
+          fi
