@@ -156,7 +156,7 @@ jobs:
           enablement: pages
           
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         with:
           path: '${{ env.APP_PATH }}/www'
           retention-days: 1  # Reduce retention period for artifacts
