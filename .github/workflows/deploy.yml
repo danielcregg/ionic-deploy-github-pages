@@ -5,10 +5,6 @@ on:
   push:
     branches: ["main"]
     paths-ignore:
-      # Prevent deployment on documentation changes
-      - '**/*.md'
-      - '**/*.MD'
-      - 'docs/**'
       - 'LICENSE'
       - '.gitignore'
   workflow_dispatch:  # Allow manual trigger
@@ -169,30 +165,34 @@ jobs:
       - name: Update documentation with deployment URL
         if: success()
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Changed from GH_TOKEN
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           DEPLOY_URL="${{ steps.deployment.outputs.page_url }}"
+          REPO_FULL_NAME="${GITHUB_REPOSITORY}"
+          REPO_OWNER="${GITHUB_REPOSITORY_OWNER}"
+          REPO_NAME="${GITHUB_REPOSITORY#*/}"
+          
+          # Update or create README.md
+          cat > README.md << EOL
+          # Ionic GitHub Pages Demo
+          
+          [![Deploy Ionic App to GitHub Pages](https://github.com/${REPO_FULL_NAME}/actions/workflows/deploy.yml/badge.svg)](https://github.com/${REPO_FULL_NAME}/actions/workflows/deploy.yml)
+          
+          ## 🌐 Live Demo
+          [View Demo](${DEPLOY_URL})
+          EOL
           
           # Create deployment info file
           echo "# Deployment Information" > DEPLOYMENT.md
           echo "Last deployed: $(date)" >> DEPLOYMENT.md
           echo "🌍 Live Demo: $DEPLOY_URL" >> DEPLOYMENT.md
           
-          # Try to update repo description, fallback silently if it fails
-          gh repo edit --description "🌐 Live Demo: $DEPLOY_URL" || true
-          
-          # Setup git configuration
+          # Setup git and commit changes
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          
-          # Commit and push changes
-          if [[ -n $(git status --porcelain DEPLOYMENT.md) ]]; then
-            git add DEPLOYMENT.md
-            git commit -m "Update deployment information [skip ci]"
-            git push origin HEAD:${GITHUB_REF#refs/heads/}
-          else
-            echo "No changes to commit"
-          fi
+          git add README.md DEPLOYMENT.md
+          git commit -m "Update documentation and demo links [skip ci]" || true
+          git push origin HEAD:${GITHUB_REF#refs/heads/} || true
 
       - name: Deployment status
         if: always()
@@ -206,4 +206,3 @@ jobs:
             echo "❌ Deployment failed"
             echo "Deployment outcome: ${{ steps.deployment.outcome }}"
             exit 1
-          fi

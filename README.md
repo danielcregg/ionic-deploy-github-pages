@@ -1,8 +1,8 @@
-# Your Ionic App Name
+# Ionic GitHub Pages Demo
 
-[![Deploy Ionic App to GitHub Pages](https://github.com/${{ github.repository }}/actions/workflows/deploy.yml/badge.svg)](https://github.com/${{ github.repository }}/actions/workflows/deploy.yml)
+[![Deploy Ionic App to GitHub Pages](https://github.com/danielcregg/ionic-deploy-github-pages/actions/workflows/deploy.yml/badge.svg)](https://github.com/danielcregg/ionic-deploy-github-pages/actions/workflows/deploy.yml)
 
 ## 🌐 Live Demo
-Visit the live application: [View Demo](https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/)
+[View Demo](https://danielcregg.github.io/ionic-deploy-github-pages/)
 
 // ...rest of your existing README content...
