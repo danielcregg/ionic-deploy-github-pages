@@ -17,6 +17,9 @@ permissions:
 env:
   NODE_VERSION: '18'
   CACHE_KEY_PREFIX: 'ionic-gh-pages'
+  # Added for npm/Node.js performance
+  NODE_OPTIONS: '--max_old_space_size=4096'
+  NPM_CONFIG_LOGLEVEL: 'error'  # Reduce npm log noise
 
 concurrency:
   group: "pages"
@@ -78,18 +81,26 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: ${{ env.PACKAGE_JSON_PATH }}
+          cache-dependency-path: '**/package-lock.json'  # Improved cache path
 
+      # Optimized dependency installation
       - name: Install dependencies
         run: |
-          npm install -g @ionic/cli &
+          # Install Ionic CLI globally with performance flags
+          npm install -g @ionic/cli --no-audit --no-fund &
           IONIC_PID=$!
           
           cd ${{ env.APP_PATH }}
-          npm ci --prefer-offline --no-audit
+          # Install project dependencies with performance optimizations
+          npm ci \
+            --prefer-offline \
+            --no-audit \
+            --no-fund \
+            --production=false
           
           wait $IONIC_PID
 
+      # Rest of the workflow remains unchanged...
       - name: Build Ionic application
         working-directory: ${{ env.APP_PATH }}
         run: |
