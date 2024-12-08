@@ -185,3 +185,4 @@ jobs:
             echo "❌ Deployment failed"
             echo "Deployment outcome: $DEPLOY_OUTCOME"
             exit 1
+          fi
