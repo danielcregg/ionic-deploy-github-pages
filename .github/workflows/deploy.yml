@@ -47,8 +47,6 @@ jobs:
         run: |
           echo "REPO_NAME=${GITHUB_REPOSITORY##*/}" >> $GITHUB_ENV
           echo "TIMESTAMP=$(date +%Y%m%d_%H%M%S)" >> $GITHUB_ENV
-          echo "Node version: $(node -v)"
-          echo "NPM version: $(npm -v)"
 
       - name: Detect Ionic project directory
         id: find-ionic
@@ -66,6 +64,19 @@ jobs:
           echo "APP_PATH=$APP_PATH" >> $GITHUB_ENV
           echo "PACKAGE_JSON_PATH=$(realpath $APP_PATH/package-lock.json)" >> $GITHUB_ENV
           echo "📂 Ionic app path: $APP_PATH"
+
+      - name: Detect Node.js version
+        id: node-version
+        run: |
+          if [ -f "${{ env.APP_PATH }}/.nvmrc" ]; then
+            NODE_VERSION=$(cat "${{ env.APP_PATH }}/.nvmrc")
+          elif [ -f "${{ env.APP_PATH }}/package.json" ]; then
+            NODE_VERSION=$(jq -r '.engines.node' "${{ env.APP_PATH }}/package.json" || echo '18')
+          else
+            NODE_VERSION='18'
+          fi
+          echo "NODE_VERSION=${NODE_VERSION}" >> $GITHUB_ENV
+          echo "Using Node.js version: $NODE_VERSION"
 
       - name: Setup Node.js and NPM cache
         uses: actions/setup-node@v3
@@ -85,6 +96,13 @@ jobs:
         working-directory: ${{ env.APP_PATH }}
         run: |
           echo "🏗️ Starting build process..."
+
+          # Output versions
+          echo "Node.js version: $(node -v)"
+          echo "NPM version: $(npm -v)"
+          echo "Ionic CLI version: $(npx ionic --version || echo 'Not installed')"
+
+          # Build the app using npx
           npx ionic build --configuration=${{ env.ANGULAR_CONFIG }} -- --base-href /${{ env.REPO_NAME }}/ || {
             echo "❌ Build failed"
             exit 1
