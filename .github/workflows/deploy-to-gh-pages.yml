@@ -7,6 +7,7 @@ on:
       - 'LICENSE'
       - '.gitignore'
       - 'README.md'
+      - '**.md'  # Added to ignore all markdown files
   workflow_dispatch:
 
 permissions:
@@ -17,9 +18,11 @@ permissions:
 env:
   NODE_VERSION: '18'
   CACHE_KEY_PREFIX: 'ionic-gh-pages'
-  # Added for npm/Node.js performance
   NODE_OPTIONS: '--max_old_space_size=4096'
-  NPM_CONFIG_LOGLEVEL: 'error'  # Reduce npm log noise
+  NPM_CONFIG_LOGLEVEL: 'error'
+  # Added build optimizations
+  NG_BUILD_PARALLEL: 'true'
+  NG_BUILD_CACHE: 'true'
 
 concurrency:
   group: "pages"
@@ -39,6 +42,12 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
+          sparse-checkout: |
+            src
+            package.json
+            package-lock.json
+            ionic.config.json
+            angular.json
 
       - name: Extract repository and environment info
         id: env-setup
@@ -81,17 +90,14 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: '**/package-lock.json'  # Improved cache path
+          cache-dependency-path: '**/package-lock.json'
 
-      # Optimized dependency installation
       - name: Install dependencies
         run: |
-          # Install Ionic CLI globally with performance flags
           npm install -g @ionic/cli --no-audit --no-fund &
           IONIC_PID=$!
           
           cd ${{ env.APP_PATH }}
-          # Install project dependencies with performance optimizations
           npm ci \
             --prefer-offline \
             --no-audit \
@@ -100,61 +106,56 @@ jobs:
           
           wait $IONIC_PID
 
-      # Rest of the workflow remains unchanged...
       - name: Build Ionic application
         working-directory: ${{ env.APP_PATH }}
         run: |
-          echo "🏗️ Starting build process..."
+          echo "🏗️ Starting optimized build..."
           
-          # Set build command based on project type
-          if [ "${{ env.ANGULAR_TYPE }}" = "standalone" ]; then
-            BUILD_CMD="ionic build --configuration=production -- --base-href /${{ env.REPO_NAME }}/"
-          else
-            BUILD_CMD="ionic build --configuration=production -- --base-href /${{ env.REPO_NAME }}/"
-          fi
-          
-          echo "🔨 Using build command: $BUILD_CMD"
-          eval $BUILD_CMD || {
-            echo "❌ Build failed"
-            exit 1
-          }
+          # Build with production optimizations
+          ionic build \
+            --configuration=production \
+            --verbose=false \
+            -- \
+            --base-href=/${{ env.REPO_NAME }}/ \
+            --aot \
+            --build-optimizer \
+            --optimization \
+            --progress=false || {
+              echo "❌ Build failed"
+              exit 1
+            }
           
           cd www
           
-          echo "⚙️ Setting up GitHub Pages routing..."
+          # Combine file operations
+          echo "⚙️ Setting up routing..."
+          
+          # Create 404.html and add routing scripts in one operation
           cp index.html 404.html
           
-          sed -i '/<head>/a\
-          <!-- GitHub Pages 404 handler -->\
-          <script>\
-            (function() {\
-              var redirect = sessionStorage.redirect;\
-              delete sessionStorage.redirect;\
-              if (redirect && redirect != location.href) {\
-                history.replaceState(null, null, redirect);\
-              }\
-            })();\
-          </script>' 404.html
-          
-          sed -i '/<head>/a\
-          <!-- Route state preservation -->\
-          <script>\
-            (function() {\
-              var l = location.href;\
-              if (l.indexOf("?") > -1) {\
-                sessionStorage.redirect = l.substr(0, l.indexOf("?"));\
-              }\
-            })();\
-          </script>' index.html
+          # Add routing scripts to both files efficiently
+          for file in 404.html index.html; do
+            sed -i '/<head>/a\
+            <script>\
+              (function() {\
+                var redirect = sessionStorage.redirect;\
+                delete sessionStorage.redirect;\
+                if (redirect && redirect != location.href) {\
+                  history.replaceState(null, null, redirect);\
+                }\
+                var l = location.href;\
+                if (l.indexOf("?") > -1) {\
+                  sessionStorage.redirect = l.substr(0, l.indexOf("?"));\
+                }\
+              })();\
+            </script>' $file
+          done
           
           echo "✅ Build completed successfully"
 
       - name: Verify build output
         run: |
-          if [ ! -d "${{ env.APP_PATH }}/www" ]; then
-            echo "❌ Error: Build output directory not found"
-            exit 1
-          fi
+          [ -d "${{ env.APP_PATH }}/www" ] || { echo "❌ Build missing"; exit 1; }
           echo "📊 Build size: $(du -sh ${{ env.APP_PATH }}/www | cut -f1)"
 
       - name: Setup GitHub Pages
@@ -177,13 +178,9 @@ jobs:
         if: always()
         shell: bash
         run: |
-          DEPLOY_OUTCOME="${{ steps.deployment.outcome }}"
-          if [[ "$DEPLOY_OUTCOME" == "success" ]]; then
-            echo "✅ Deployment successful"
-            echo "🌍 Site available at: ${{ steps.deployment.outputs.page_url }}"
-            exit 0
+          if [[ "${{ steps.deployment.outcome }}" == "success" ]]; then
+            echo "✅ Site available at: ${{ steps.deployment.outputs.page_url }}"
           else
             echo "❌ Deployment failed"
-            echo "Deployment outcome: $DEPLOY_OUTCOME"
             exit 1
           fi
