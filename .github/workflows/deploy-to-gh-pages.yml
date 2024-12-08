@@ -176,7 +176,7 @@ jobs:
 
       - name: Deployment status
         if: always()
-        shell: bash
+        shell: bash -e {0}
         env:
           DEPLOY_URL: ${{ steps.deployment.outputs.page_url }}
           NODE_VERSION: ${{ env.NODE_VERSION }}
@@ -186,17 +186,20 @@ jobs:
           APP_PATH: ${{ env.APP_PATH }}
           GITHUB_PAGES: 'true'
         run: |
+          #!/bin/bash
+          set -e
+          
           DEPLOY_OUTCOME="${{ steps.deployment.outcome }}"
           echo "Checking deployment outcome: $DEPLOY_OUTCOME"
           
           if [[ "$DEPLOY_OUTCOME" == "success" ]]; then
-            echo "✅ Deployment successful"
-            echo "🌍 Site available at: $DEPLOY_URL"
-            exit 0
+              echo "✅ Deployment successful"
+              echo "🌍 Site available at: $DEPLOY_URL"
+              exit 0
           elif [[ "$DEPLOY_OUTCOME" == "skipped" ]]; then
-            echo "⚠️ Deployment skipped"
-            exit 0
+              echo "��️ Deployment skipped"
+              exit 0
           else
-            echo "❌ Deployment failed"
-            echo "Deployment outcome: $DEPLOY_OUTCOME"
-            exit 1
+              echo "❌ Deployment failed"
+              echo "Deployment outcome: $DEPLOY_OUTCOME"
+              exit 1
