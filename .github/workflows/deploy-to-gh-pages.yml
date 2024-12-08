@@ -42,12 +42,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
-          sparse-checkout: |
-            src
-            package.json
-            package-lock.json
-            ionic.config.json
-            angular.json
 
       - name: Extract repository and environment info
         id: env-setup
