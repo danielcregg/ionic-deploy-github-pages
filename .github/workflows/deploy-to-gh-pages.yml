@@ -1,6 +1,5 @@
 name: Deploy Ionic App to GitHub Pages
 
-# Workflow Triggers
 on:
   push:
     branches: ["main"]
@@ -8,7 +7,6 @@ on:
       - 'LICENSE'
       - '.gitignore'
       - 'README.md'
-      - '**.md'  # Ignore all markdown files
   workflow_dispatch:
 
 permissions:
@@ -18,12 +16,8 @@ permissions:
 
 env:
   NODE_VERSION: '18'
-  # Increase performance of npm/node
-  NODE_OPTIONS: '--max_old_space_size=4096'
-  NPM_CONFIG_LOGLEVEL: 'error'  # Reduce npm logs
-  IONIC_CLI_SSL_REJECT_UNAUTHORIZED: '0'  # Skip SSL cert validation for faster installs
+  CACHE_KEY_PREFIX: 'ionic-gh-pages'
 
-# Prevent concurrent deployments and cancel in-progress runs
 concurrency:
   group: "pages"
   cancel-in-progress: true
@@ -38,143 +32,124 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      # OPTIMIZATION: Use shallow clone and sparse checkout
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
-          sparse-checkout: |
-            src
-            package.json
-            package-lock.json
-            ionic.config.json
-            angular.json
 
-      # OPTIMIZATION: Combine environment setup steps
-      - name: Setup environment and detect project
-        id: setup
-        shell: bash
+      - name: Extract repository and environment info
+        id: env-setup
         run: |
-          # Set basic environment variables
           echo "REPO_NAME=${GITHUB_REPOSITORY##*/}" >> $GITHUB_ENV
           echo "TIMESTAMP=$(date +%Y%m%d_%H%M%S)" >> $GITHUB_ENV
-          
-          # Find Ionic project directory and validate
-          APP_PATH=$(find . -type f -name ionic.config.json -exec dirname {} \; | head -n 1)
-          if [[ -z "$APP_PATH" ]]; then
-            echo "::error::No ionic.config.json found in repository"
-            exit 1
-          fi
-          
-          # Set APP_PATH for other steps
-          echo "APP_PATH=$APP_PATH" >> $GITHUB_ENV
-          
-          # Detect and set project type
-          if [[ -f "$APP_PATH/src/app/app.config.ts" ]] && grep -q "bootstrapApplication" "$APP_PATH/src/main.ts" 2>/dev/null; then
-            echo "PROJECT_TYPE=standalone" >> $GITHUB_ENV
-            PROJECT_TYPE="standalone"
-          else
-            echo "PROJECT_TYPE=ngmodule" >> $GITHUB_ENV
-            PROJECT_TYPE="ngmodule"
-          fi
-          
-          # Output debug info
-          echo "Repository: ${GITHUB_REPOSITORY##*/}"
-          echo "Project directory: $APP_PATH"
-          echo "Project type: $PROJECT_TYPE"
           echo "Node version: $(node -v)"
           echo "NPM version: $(npm -v)"
 
-      # OPTIMIZATION: Enhanced caching strategy
-      - name: Setup Node.js with caching
+      - name: Detect Ionic project directory and type
+        id: find-ionic
+        run: |
+          APP_PATH=$(find . -type f -name ionic.config.json -exec dirname {} \; | head -n 1)
+          if [ -z "$APP_PATH" ]; then
+            echo "❌ Error: No ionic.config.json found"
+            exit 1
+          fi
+          
+          # Validate project structure
+          if [ ! -f "$APP_PATH/package.json" ]; then
+            echo "❌ Error: package.json not found in $APP_PATH"
+            exit 1
+          fi
+          
+          # Detect if project is standalone by checking app.config.ts and main.ts
+          if [ -f "$APP_PATH/src/app/app.config.ts" ] && grep -q "bootstrapApplication" "$APP_PATH/src/main.ts"; then
+            echo "ANGULAR_TYPE=standalone" >> $GITHUB_ENV
+            echo "📦 Detected standalone Angular project (found app.config.ts and bootstrapApplication)"
+          else
+            echo "ANGULAR_TYPE=ngmodule" >> $GITHUB_ENV
+            echo "📦 Detected NgModule-based Angular project"
+          fi
+          
+          echo "APP_PATH=$APP_PATH" >> $GITHUB_ENV
+          echo "PACKAGE_JSON_PATH=$(realpath $APP_PATH/package-lock.json)" >> $GITHUB_ENV
+          echo "📂 Ionic app path: $APP_PATH"
+
+      - name: Setup Node.js and NPM cache
         uses: actions/setup-node@v3
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: '**/package-lock.json'
+          cache-dependency-path: ${{ env.PACKAGE_JSON_PATH }}
 
-      # OPTIMIZATION: Parallel installation with performance flags
       - name: Install dependencies
-        shell: bash
         run: |
-          cd ${{ env.APP_PATH }}
-          
-          # Install Ionic CLI globally in parallel
-          npm install -g @ionic/cli --no-audit --no-fund &
+          npm install -g @ionic/cli &
           IONIC_PID=$!
           
-          # Install project dependencies with performance optimizations
-          npm ci \
-            --prefer-offline \
-            --no-audit \
-            --no-fund \
-            --ignore-scripts \
-            --production=false
+          cd ${{ env.APP_PATH }}
+          npm ci --prefer-offline --no-audit
           
-          # Wait for Ionic CLI installation
           wait $IONIC_PID
 
-      # OPTIMIZATION: Streamlined build process
       - name: Build Ionic application
         working-directory: ${{ env.APP_PATH }}
-        env:
-          # Optimize Angular build
-          NG_BUILD_PARALLEL: 'true'
-          NG_BUILD_CACHE: 'true'
         run: |
-          echo "🏗️ Starting optimized build..."
+          echo "🏗️ Starting build process..."
           
-          # Build with production optimizations
-          ionic build \
-            --configuration=production \
-            --verbose=false \
-            -- \
-            --base-href=/${{ env.REPO_NAME }}/ \
-            --aot \
-            --build-optimizer \
-            --optimization \
-            --progress=false || {
-              echo "❌ Build failed"
-              exit 1
-            }
+          # Set build command based on project type
+          if [ "${{ env.ANGULAR_TYPE }}" = "standalone" ]; then
+            BUILD_CMD="ionic build --configuration=production -- --base-href /${{ env.REPO_NAME }}/"
+          else
+            BUILD_CMD="ionic build --configuration=production -- --base-href /${{ env.REPO_NAME }}/"
+          fi
+          
+          echo "🔨 Using build command: $BUILD_CMD"
+          eval $BUILD_CMD || {
+            echo "❌ Build failed"
+            exit 1
+          }
           
           cd www
           
-          # OPTIMIZATION: Combine file operations
-          echo "⚙️ Setting up routing..."
+          echo "⚙️ Setting up GitHub Pages routing..."
           cp index.html 404.html
           
-          # Add routing handlers more efficiently
-          for file in 404.html index.html; do
-            sed -i '/<head>/a\
-            <script>\
-              // GitHub Pages routing handler\
-              (function() {\
-                var redirect = sessionStorage.redirect;\
-                delete sessionStorage.redirect;\
-                if (redirect && redirect != location.href) {\
-                  history.replaceState(null, null, redirect);\
-                }\
-                \
-                var l = location.href;\
-                if (l.indexOf("?") > -1) {\
-                  sessionStorage.redirect = l.substr(0, l.indexOf("?"));\
-                }\
-              })();\
-            </script>' $file
-          done
+          sed -i '/<head>/a\
+          <!-- GitHub Pages 404 handler -->\
+          <script>\
+            (function() {\
+              var redirect = sessionStorage.redirect;\
+              delete sessionStorage.redirect;\
+              if (redirect && redirect != location.href) {\
+                history.replaceState(null, null, redirect);\
+              }\
+            })();\
+          </script>' 404.html
+          
+          sed -i '/<head>/a\
+          <!-- Route state preservation -->\
+          <script>\
+            (function() {\
+              var l = location.href;\
+              if (l.indexOf("?") > -1) {\
+                sessionStorage.redirect = l.substr(0, l.indexOf("?"));\
+              }\
+            })();\
+          </script>' index.html
           
           echo "✅ Build completed successfully"
 
-      # OPTIMIZATION: Quick build verification
-      - name: Verify build
+      - name: Verify build output
         run: |
-          [ -d "${{ env.APP_PATH }}/www" ] || { echo "❌ Build missing"; exit 1; }
+          if [ ! -d "${{ env.APP_PATH }}/www" ]; then
+            echo "❌ Error: Build output directory not found"
+            exit 1
+          fi
           echo "📊 Build size: $(du -sh ${{ env.APP_PATH }}/www | cut -f1)"
 
-      # DEPLOYMENT: Streamlined GitHub Pages deployment
-      - name: Setup Pages
+      - name: Setup GitHub Pages
         uses: actions/configure-pages@v5
+        with:
+          enablement: pages
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
@@ -191,9 +166,13 @@ jobs:
         if: always()
         shell: bash
         run: |
-          if [[ "${{ steps.deployment.outcome }}" == "success" ]]; then
-            echo "✅ Site available at: ${{ steps.deployment.outputs.page_url }}"
+          DEPLOY_OUTCOME="${{ steps.deployment.outcome }}"
+          if [[ "$DEPLOY_OUTCOME" == "success" ]]; then
+            echo "✅ Deployment successful"
+            echo "🌍 Site available at: ${{ steps.deployment.outputs.page_url }}"
+            exit 0
           else
             echo "❌ Deployment failed"
+            echo "Deployment outcome: $DEPLOY_OUTCOME"
             exit 1
           fi
