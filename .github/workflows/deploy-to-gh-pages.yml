@@ -16,8 +16,6 @@ permissions:
   id-token: write
 
 env:
-  NODE_VERSION: '18'
-  CACHE_KEY_PREFIX: 'ionic-gh-pages'
   NODE_OPTIONS: '--max_old_space_size=4096'
   NPM_CONFIG_LOGLEVEL: 'error'
   NG_BUILD_PARALLEL: 'true'
@@ -43,18 +41,8 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Extract repository and environment info
-        id: env-setup
-        shell: bash
-        run: |
-          {
-            echo "REPO_NAME=${GITHUB_REPOSITORY##*/}"
-            echo "TIMESTAMP=$(date +%Y%m%d_%H%M%S)"
-          } >> $GITHUB_ENV
-          echo "Node $(node -v), NPM $(npm -v)"
-
-      - name: Detect Ionic project directory and type
-        id: find-ionic
+      - name: Detect Ionic project directory and configurations
+        id: project-config
         shell: bash
         run: |
           # Find and validate Ionic project
@@ -73,6 +61,22 @@ jobs:
             fi
           done
           
+          # Read Node.js version from package.json engines field, fallback to project dependencies
+          NODE_VERSION=$(node -p "(() => { 
+            const pkg = require('./${APP_PATH}/package.json');
+            if (pkg.engines && pkg.engines.node) {
+              return pkg.engines.node.replace(/[^0-9.]/g, '');
+            }
+            const deps = {...pkg.dependencies, ...pkg.devDependencies};
+            if (deps['@angular/core']) {
+              const angularVersion = deps['@angular/core'].replace(/[\^~=<>]/g, '').split('.')[0];
+              if (angularVersion >= 16) return '18';
+              if (angularVersion >= 14) return '16';
+              return '14';
+            }
+            return '18';
+          })()") || "18"
+          
           # Detect project type
           if [[ -f "$APP_PATH/src/app/app.config.ts" ]] && grep -q "bootstrapApplication" "$APP_PATH/src/main.ts"; then
             PROJECT_TYPE="standalone"
@@ -80,14 +84,28 @@ jobs:
             PROJECT_TYPE="ngmodule"
           fi
           
+          # Get production configuration name from angular.json
+          PROD_CONFIG=$(node -p "(() => {
+            const angularJson = require('./${APP_PATH}/angular.json');
+            const projectName = Object.keys(angularJson.projects)[0];
+            const configs = angularJson.projects[projectName].architect.build.configurations;
+            return configs.production ? 'production' : 'prod';
+          })()") || "production"
+          
           {
             echo "APP_PATH=$APP_PATH"
+            echo "NODE_VERSION=$NODE_VERSION"
             echo "PROJECT_TYPE=$PROJECT_TYPE"
             echo "PACKAGE_JSON_PATH=$(realpath $APP_PATH/package-lock.json)"
+            echo "PROD_CONFIG=$PROD_CONFIG"
+            echo "REPO_NAME=${GITHUB_REPOSITORY##*/}"
+            echo "TIMESTAMP=$(date +%Y%m%d_%H%M%S)"
           } >> $GITHUB_ENV
           
           echo "✓ Ionic project detected at: $APP_PATH"
+          echo "✓ Node.js version: $NODE_VERSION"
           echo "✓ Project type: $PROJECT_TYPE"
+          echo "✓ Production config: $PROD_CONFIG"
 
       - name: Setup Node.js and NPM cache
         uses: actions/setup-node@v3
@@ -126,7 +144,7 @@ jobs:
           
           # Build with production optimizations
           ionic build \
-            --configuration=production \
+            --configuration=${{ env.PROD_CONFIG }} \
             --verbose=false \
             -- \
             --base-href=/${{ env.REPO_NAME }}/ \
