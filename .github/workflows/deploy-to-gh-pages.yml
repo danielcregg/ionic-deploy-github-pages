@@ -215,7 +215,8 @@ jobs:
         shell: bash
         run: |
           if [[ "${{ steps.deploy.outcome }}" == "success" ]]; then
-            echo "✓ Site available at: ${{ steps.deploy.outputs.page_url }}"
+            echo "✓ Deployment successful"
+            echo "::notice title=Deployed Site::${{ steps.deploy.outputs.page_url }}"
           else
             echo "::error::Deployment failed"
             exit 1
