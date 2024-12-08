@@ -1,6 +1,5 @@
 name: Deploy Ionic App to GitHub Pages
 
-# Workflow Triggers
 on:
   push:
     branches: ["main"]
@@ -8,24 +7,20 @@ on:
       - 'LICENSE'
       - '.gitignore'
       - 'README.md'
-  workflow_dispatch:  # Allow manual trigger
+  workflow_dispatch:
 
-# Rest of the workflow remains exactly the same...
 permissions:
-  contents: write      # Allow writing files
+  contents: write
   pages: write
   id-token: write
 
-# Global environment variables
 env:
-  NODE_VERSION: '18'  # Node.js version
-  ANGULAR_CONFIG: 'production'  # Build configuration
-  CACHE_KEY_PREFIX: 'ionic-gh-pages'  # Cache key prefix for better cache management
+  NODE_VERSION: '18'
+  CACHE_KEY_PREFIX: 'ionic-gh-pages'
 
-# Prevent concurrent deployments
 concurrency:
   group: "pages"
-  cancel-in-progress: true  # Changed to true to prevent queuing of outdated deployments
+  cancel-in-progress: true
 
 jobs:
   deploy:
@@ -33,15 +28,14 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-22.04  # Explicitly set Ubuntu version
-    timeout-minutes: 15  # Add timeout to prevent hanging workflows
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
 
     steps:
-      # SETUP PHASE
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1  # Shallow clone for faster checkout
+          fetch-depth: 1
 
       - name: Extract repository and environment info
         id: env-setup
@@ -50,23 +44,35 @@ jobs:
           echo "TIMESTAMP=$(date +%Y%m%d_%H%M%S)" >> $GITHUB_ENV
           echo "Node version: $(node -v)"
           echo "NPM version: $(npm -v)"
-      - name: Detect Ionic project directory
+
+      - name: Detect Ionic project directory and type
         id: find-ionic
         run: |
           APP_PATH=$(find . -type f -name ionic.config.json -exec dirname {} \; | head -n 1)
           if [ -z "$APP_PATH" ]; then
-            echo "⚠️ No ionic.config.json found, using root directory"
-            APP_PATH="."
+            echo "❌ Error: No ionic.config.json found"
+            exit 1
           fi
+          
           # Validate project structure
           if [ ! -f "$APP_PATH/package.json" ]; then
             echo "❌ Error: package.json not found in $APP_PATH"
             exit 1
           fi
+          
+          # Detect if project is standalone by checking app.config.ts and main.ts
+          if [ -f "$APP_PATH/src/app/app.config.ts" ] && grep -q "bootstrapApplication" "$APP_PATH/src/main.ts"; then
+            echo "ANGULAR_TYPE=standalone" >> $GITHUB_ENV
+            echo "📦 Detected standalone Angular project (found app.config.ts and bootstrapApplication)"
+          else
+            echo "ANGULAR_TYPE=ngmodule" >> $GITHUB_ENV
+            echo "📦 Detected NgModule-based Angular project"
+          fi
+          
           echo "APP_PATH=$APP_PATH" >> $GITHUB_ENV
           echo "PACKAGE_JSON_PATH=$(realpath $APP_PATH/package-lock.json)" >> $GITHUB_ENV
           echo "📂 Ionic app path: $APP_PATH"
-      # DEPENDENCIES PHASE
+
       - name: Setup Node.js and NPM cache
         uses: actions/setup-node@v3
         with:
@@ -74,41 +80,39 @@ jobs:
           cache: 'npm'
           cache-dependency-path: ${{ env.PACKAGE_JSON_PATH }}
 
-      # Parallel installation of dependencies
       - name: Install dependencies
         run: |
-          # Install Ionic CLI globally in parallel with project dependencies
           npm install -g @ionic/cli &
           IONIC_PID=$!
           
-          # Install project dependencies
           cd ${{ env.APP_PATH }}
           npm ci --prefer-offline --no-audit
           
-          # Wait for Ionic CLI installation
           wait $IONIC_PID
-      # BUILD PHASE
+
       - name: Build Ionic application
         working-directory: ${{ env.APP_PATH }}
         run: |
           echo "🏗️ Starting build process..."
           
-          # Build the app
-          ionic build --configuration=${{ env.ANGULAR_CONFIG }} -- --base-href /${{ env.REPO_NAME }}/ || {
+          # Set build command based on project type
+          if [ "${{ env.ANGULAR_TYPE }}" = "standalone" ]; then
+            BUILD_CMD="ionic build --configuration=production -- --base-href /${{ env.REPO_NAME }}/"
+          else
+            BUILD_CMD="ionic build --configuration=production -- --base-href /${{ env.REPO_NAME }}/"
+          fi
+          
+          echo "🔨 Using build command: $BUILD_CMD"
+          eval $BUILD_CMD || {
             echo "❌ Build failed"
             exit 1
           }
           
-          # Navigate to build output
           cd www
           
-          # Setup routing handlers for GitHub Pages
           echo "⚙️ Setting up GitHub Pages routing..."
-          
-          # Create 404.html and add routing handler
           cp index.html 404.html
           
-          # Add routing handlers
           sed -i '/<head>/a\
           <!-- GitHub Pages 404 handler -->\
           <script>\
@@ -133,7 +137,7 @@ jobs:
           </script>' index.html
           
           echo "✅ Build completed successfully"
-      # VALIDATION PHASE
+
       - name: Verify build output
         run: |
           if [ ! -d "${{ env.APP_PATH }}/www" ]; then
@@ -141,22 +145,22 @@ jobs:
             exit 1
           fi
           echo "📊 Build size: $(du -sh ${{ env.APP_PATH }}/www | cut -f1)"
-      # DEPLOYMENT PHASE
+
       - name: Setup GitHub Pages
         uses: actions/configure-pages@v5
         with:
           enablement: pages
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3  # Revert to v3 as v4 is not available
+        uses: actions/upload-pages-artifact@v3
         with:
           path: '${{ env.APP_PATH }}/www'
-          retention-days: 1  # Reduce retention period for artifacts
+          retention-days: 1
 
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-        timeout-minutes: 5  # Add timeout for deployment
+        timeout-minutes: 5
 
       - name: Deployment status
         if: always()
