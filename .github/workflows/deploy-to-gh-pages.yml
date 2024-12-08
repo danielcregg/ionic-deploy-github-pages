@@ -181,8 +181,10 @@ jobs:
             echo "✅ Deployment successful"
             echo "🌍 Site available at: ${{ steps.deployment.outputs.page_url }}"
             exit 0
+          elif [[ "$DEPLOY_OUTCOME" == "skipped" ]]; then
+            echo "⚠️ Deployment skipped"
+            exit 0
           else
             echo "❌ Deployment failed"
             echo "Deployment outcome: $DEPLOY_OUTCOME"
             exit 1
-          fi
