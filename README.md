@@ -10,7 +10,7 @@ Deploy your Ionic Angular app to GitHub Pages automatically using GitHub Actions
    - Option B: Use curl in terminal:
      ```bash
      mkdir -p .github/workflows && \
-     curl -o .github/workflows/deploy.yml https://raw.githubusercontent.com/danielcregg/ionic-deploy-github-pages/main/.github/workflows/deploy.yml
+     curl -o .github/workflows/deploy-to-gh-pages.yml https://raw.githubusercontent.com/danielcregg/ionic-deploy-github-pages/main/.github/workflows/deploy-to-gh-pages.yml
      ```
 
 2. **Enable GitHub Pages**:
