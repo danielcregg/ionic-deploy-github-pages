@@ -1,4 +1,5 @@
 name: Deploy Ionic App to GitHub Pages
+
 # Workflow Triggers
 on:
   push:
@@ -7,20 +8,24 @@ on:
       - 'LICENSE'
       - '.gitignore'
   workflow_dispatch:  # Allow manual trigger
+
 # Required permissions for GitHub Pages
 permissions:
   contents: write      # Allow writing files
   pages: write
   id-token: write
+
 # Global environment variables
 env:
   NODE_VERSION: '18'  # Node.js version
   ANGULAR_CONFIG: 'production'  # Build configuration
   CACHE_KEY_PREFIX: 'ionic-gh-pages'  # Cache key prefix for better cache management
+
 # Prevent concurrent deployments
 concurrency:
   group: "pages"
   cancel-in-progress: true  # Changed to true to prevent queuing of outdated deployments
+
 jobs:
   deploy:
     name: Build and Deploy
@@ -29,12 +34,14 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-22.04  # Explicitly set Ubuntu version
     timeout-minutes: 15  # Add timeout to prevent hanging workflows
+
     steps:
       # SETUP PHASE
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 1  # Shallow clone for faster checkout
+
       - name: Extract repository and environment info
         id: env-setup
         run: |
@@ -58,26 +65,40 @@ jobs:
           echo "APP_PATH=$APP_PATH" >> $GITHUB_ENV
           echo "PACKAGE_JSON_PATH=$(realpath $APP_PATH/package-lock.json)" >> $GITHUB_ENV
           echo "📂 Ionic app path: $APP_PATH"
+      # DEPENDENCIES PHASE
       - name: Setup Node.js and NPM cache
         uses: actions/setup-node@v3
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
           cache-dependency-path: ${{ env.PACKAGE_JSON_PATH }}
-      # DEPENDENCIES PHASE
+
+      # Parallel installation of dependencies
       - name: Install dependencies
         run: |
+          # Install Ionic CLI globally in parallel with project dependencies
+          npm install -g @ionic/cli &
+          IONIC_PID=$!
+          
+          # Install project dependencies
           cd ${{ env.APP_PATH }}
           npm ci --prefer-offline --no-audit
+          
+          # Wait for Ionic CLI installation
+          wait $IONIC_PID
       # BUILD PHASE
       - name: Build Ionic application
         working-directory: ${{ env.APP_PATH }}
         run: |
           echo "🏗️ Starting build process..."
-          npx ionic build --configuration=${{ env.ANGULAR_CONFIG }} -- --base-href /${{ env.REPO_NAME }}/ || {
+          
+          # Build the app
+          ionic build --configuration=${{ env.ANGULAR_CONFIG }} -- --base-href /${{ env.REPO_NAME }}/ || {
             echo "❌ Build failed"
             exit 1
           }
+          
+          # Navigate to build output
           cd www
           
           # Setup routing handlers for GitHub Pages
@@ -124,16 +145,18 @@ jobs:
         uses: actions/configure-pages@v5
         with:
           enablement: pages
-          
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3  # Revert to v3 as v4 is not available
         with:
           path: '${{ env.APP_PATH }}/www'
           retention-days: 1  # Reduce retention period for artifacts
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
         timeout-minutes: 5  # Add timeout for deployment
+
       - name: Deployment status
         if: always()
         shell: bash
@@ -147,3 +170,4 @@ jobs:
             echo "❌ Deployment failed"
             echo "Deployment outcome: $DEPLOY_OUTCOME"
             exit 1
+          fi
