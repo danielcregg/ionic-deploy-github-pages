@@ -179,8 +179,16 @@ jobs:
         shell: bash
         env:
           DEPLOY_URL: ${{ steps.deployment.outputs.page_url }}
+          NODE_VERSION: ${{ env.NODE_VERSION }}
+          ANGULAR_CONFIG: ${{ env.ANGULAR_CONFIG }}
+          CACHE_KEY_PREFIX: ${{ env.CACHE_KEY_PREFIX }}
+          REPO_NAME: ${{ env.REPO_NAME }}
+          APP_PATH: ${{ env.APP_PATH }}
+          GITHUB_PAGES: 'true'
         run: |
           DEPLOY_OUTCOME="${{ steps.deployment.outcome }}"
+          echo "Checking deployment outcome: $DEPLOY_OUTCOME"
+          
           if [[ "$DEPLOY_OUTCOME" == "success" ]]; then
             echo "✅ Deployment successful"
             echo "🌍 Site available at: $DEPLOY_URL"
