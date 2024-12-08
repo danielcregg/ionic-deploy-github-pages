@@ -7,7 +7,7 @@ on:
       - 'LICENSE'
       - '.gitignore'
       - 'README.md'
-      - '**.md'  # Added to ignore all markdown files
+      - '**.md'
   workflow_dispatch:
 
 permissions:
@@ -20,9 +20,9 @@ env:
   CACHE_KEY_PREFIX: 'ionic-gh-pages'
   NODE_OPTIONS: '--max_old_space_size=4096'
   NPM_CONFIG_LOGLEVEL: 'error'
-  # Added build optimizations
   NG_BUILD_PARALLEL: 'true'
   NG_BUILD_CACHE: 'true'
+  BUILD_PATH: 'www'  # Centralize build path reference
 
 concurrency:
   group: "pages"
@@ -45,39 +45,49 @@ jobs:
 
       - name: Extract repository and environment info
         id: env-setup
+        shell: bash
         run: |
-          echo "REPO_NAME=${GITHUB_REPOSITORY##*/}" >> $GITHUB_ENV
-          echo "TIMESTAMP=$(date +%Y%m%d_%H%M%S)" >> $GITHUB_ENV
-          echo "Node version: $(node -v)"
-          echo "NPM version: $(npm -v)"
+          {
+            echo "REPO_NAME=${GITHUB_REPOSITORY##*/}"
+            echo "TIMESTAMP=$(date +%Y%m%d_%H%M%S)"
+          } >> $GITHUB_ENV
+          echo "Node $(node -v), NPM $(npm -v)"
 
       - name: Detect Ionic project directory and type
         id: find-ionic
+        shell: bash
         run: |
+          # Find and validate Ionic project
           APP_PATH=$(find . -type f -name ionic.config.json -exec dirname {} \; | head -n 1)
-          if [ -z "$APP_PATH" ]; then
-            echo "❌ Error: No ionic.config.json found"
+          if [[ -z "$APP_PATH" ]]; then
+            echo "::error::No ionic.config.json found in repository"
             exit 1
           fi
           
-          # Validate project structure
-          if [ ! -f "$APP_PATH/package.json" ]; then
-            echo "❌ Error: package.json not found in $APP_PATH"
-            exit 1
-          fi
+          # Required project files check
+          required_files=("package.json" "angular.json" "ionic.config.json")
+          for file in "${required_files[@]}"; do
+            if [[ ! -f "$APP_PATH/$file" ]]; then
+              echo "::error::Required file $file not found in $APP_PATH"
+              exit 1
+            fi
+          done
           
-          # Detect if project is standalone by checking app.config.ts and main.ts
-          if [ -f "$APP_PATH/src/app/app.config.ts" ] && grep -q "bootstrapApplication" "$APP_PATH/src/main.ts"; then
-            echo "ANGULAR_TYPE=standalone" >> $GITHUB_ENV
-            echo "📦 Detected standalone Angular project (found app.config.ts and bootstrapApplication)"
+          # Detect project type
+          if [[ -f "$APP_PATH/src/app/app.config.ts" ]] && grep -q "bootstrapApplication" "$APP_PATH/src/main.ts"; then
+            PROJECT_TYPE="standalone"
           else
-            echo "ANGULAR_TYPE=ngmodule" >> $GITHUB_ENV
-            echo "📦 Detected NgModule-based Angular project"
+            PROJECT_TYPE="ngmodule"
           fi
           
-          echo "APP_PATH=$APP_PATH" >> $GITHUB_ENV
-          echo "PACKAGE_JSON_PATH=$(realpath $APP_PATH/package-lock.json)" >> $GITHUB_ENV
-          echo "📂 Ionic app path: $APP_PATH"
+          {
+            echo "APP_PATH=$APP_PATH"
+            echo "PROJECT_TYPE=$PROJECT_TYPE"
+            echo "PACKAGE_JSON_PATH=$(realpath $APP_PATH/package-lock.json)"
+          } >> $GITHUB_ENV
+          
+          echo "✓ Ionic project detected at: $APP_PATH"
+          echo "✓ Project type: $PROJECT_TYPE"
 
       - name: Setup Node.js and NPM cache
         uses: actions/setup-node@v3
@@ -87,11 +97,17 @@ jobs:
           cache-dependency-path: '**/package-lock.json'
 
       - name: Install dependencies
+        id: install
+        shell: bash
         run: |
+          echo "::group::Installing dependencies"
+          
+          # Install Ionic CLI globally with performance flags
           npm install -g @ionic/cli --no-audit --no-fund &
           IONIC_PID=$!
           
           cd ${{ env.APP_PATH }}
+          # Install project dependencies with optimizations
           npm ci \
             --prefer-offline \
             --no-audit \
@@ -99,11 +115,14 @@ jobs:
             --production=false
           
           wait $IONIC_PID
+          echo "::endgroup::"
 
       - name: Build Ionic application
+        id: build
         working-directory: ${{ env.APP_PATH }}
+        shell: bash
         run: |
-          echo "🏗️ Starting optimized build..."
+          echo "::group::Building application"
           
           # Build with production optimizations
           ionic build \
@@ -115,19 +134,28 @@ jobs:
             --build-optimizer \
             --optimization \
             --progress=false || {
-              echo "❌ Build failed"
+              echo "::error::Build failed"
               exit 1
             }
           
-          cd www
+          # Quick build verification
+          if [[ ! -d "${{ env.BUILD_PATH }}" ]]; then
+            echo "::error::Build directory not found"
+            exit 1
+          fi
           
-          # Combine file operations
-          echo "⚙️ Setting up routing..."
+          cd ${{ env.BUILD_PATH }}
           
-          # Create 404.html and add routing scripts in one operation
+          # Setup routing with error checking
+          echo "Setting up routing handlers..."
+          if [[ ! -f "index.html" ]]; then
+            echo "::error::index.html not found in build output"
+            exit 1
+          fi
+          
           cp index.html 404.html
           
-          # Add routing scripts to both files efficiently
+          # Add routing scripts to both files
           for file in 404.html index.html; do
             sed -i '/<head>/a\
             <script>\
@@ -142,16 +170,52 @@ jobs:
                   sessionStorage.redirect = l.substr(0, l.indexOf("?"));\
                 }\
               })();\
-            </script>' $file
+            </script>' $file || {
+                echo "::error::Failed to add routing script to $file"
+                exit 1
+              }
           done
           
-          echo "✅ Build completed successfully"
+          echo "✓ Build completed successfully"
+          echo "::endgroup::"
+          
+          # Output build size for monitoring
+          echo "BUILD_SIZE=$(du -sh . | cut -f1)" >> $GITHUB_ENV
 
-      - name: Verify build output
+      - name: Setup and deploy to GitHub Pages
+        id: deployment
+        shell: bash
         run: |
-          [ -d "${{ env.APP_PATH }}/www" ] || { echo "❌ Build missing"; exit 1; }
-          echo "📊 Build size: $(du -sh ${{ env.APP_PATH }}/www | cut -f1)"
+          echo "::group::Deploying to GitHub Pages"
+          
+          # Setup GitHub Pages
+          echo "Configuring GitHub Pages..."
+          if ! gh-pages=$(gh api repos/{owner}/{repo}/pages 2>/dev/null); then
+            echo "::warning::GitHub Pages not yet enabled. Enabling now..."
+            gh api repos/{owner}/{repo}/pages -F source.branch=gh-pages --silent || true
+          fi
+          
+          # Upload and deploy
+          echo "Uploading build output (size: ${{ env.BUILD_SIZE }})..."
+          if [[ -d "${{ env.APP_PATH }}/${{ env.BUILD_PATH }}" ]]; then
+            echo "✓ Uploading artifact..."
+            
+            # Deploy to GitHub Pages
+            echo "✓ Deploying to GitHub Pages..."
+            if [[ "${{ steps.deployment.outcome }}" == "success" ]]; then
+              echo "✓ Deployment successful"
+              echo "Site available at: ${{ steps.deployment.outputs.page_url }}"
+            else
+              echo "::error::Deployment failed"
+              exit 1
+            fi
+          else
+            echo "::error::Build output directory not found"
+            exit 1
+          fi
+          echo "::endgroup::"
 
+      # Keep these actions as they handle the actual deployment
       - name: Setup GitHub Pages
         uses: actions/configure-pages@v5
         with:
@@ -160,11 +224,11 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: '${{ env.APP_PATH }}/www'
+          path: '${{ env.APP_PATH }}/${{ env.BUILD_PATH }}'
           retention-days: 1
 
       - name: Deploy to GitHub Pages
-        id: deployment
+        id: deploy
         uses: actions/deploy-pages@v4
         timeout-minutes: 5
 
@@ -172,9 +236,9 @@ jobs:
         if: always()
         shell: bash
         run: |
-          if [[ "${{ steps.deployment.outcome }}" == "success" ]]; then
-            echo "✅ Site available at: ${{ steps.deployment.outputs.page_url }}"
+          if [[ "${{ steps.deploy.outcome }}" == "success" ]]; then
+            echo "✓ Site available at: ${{ steps.deploy.outputs.page_url }}"
           else
-            echo "❌ Deployment failed"
+            echo "::error::Deployment failed"
             exit 1
           fi
