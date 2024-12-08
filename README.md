@@ -14,10 +14,10 @@ Deploy your Ionic Angular app to GitHub Pages automatically using GitHub Actions
      ```
 
 2. **Enable GitHub Pages**:
-   - Go to repository **Settings** → **Pages**
-   - Under "Build and deployment", select **GitHub Actions** as the source
+   - On Github at the top of your repository page go to **Settings** and choose **Pages** from the menu bar on the left
+   - Under **Build and deployment**, select **GitHub Actions** as the Source
 
-That's it! Push your changes and your app will deploy to `https://<username>.github.io/<repo-name>/`
+That's it! Push your changes and your app will deploy to `https://<your-username>.github.io/<repo-name>/`
 
 ## ✨ Features
 
