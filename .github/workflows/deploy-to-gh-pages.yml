@@ -22,7 +22,7 @@ env:
   NPM_CONFIG_LOGLEVEL: 'error'
   NG_BUILD_PARALLEL: 'true'
   NG_BUILD_CACHE: 'true'
-  BUILD_PATH: 'www'  # Centralize build path reference
+  BUILD_PATH: 'www'
 
 concurrency:
   group: "pages"
@@ -182,40 +182,18 @@ jobs:
           # Output build size for monitoring
           echo "BUILD_SIZE=$(du -sh . | cut -f1)" >> $GITHUB_ENV
 
-      - name: Setup and deploy to GitHub Pages
-        id: deployment
+      - name: Verify build for deployment
+        id: verify
         shell: bash
         run: |
-          echo "::group::Deploying to GitHub Pages"
-          
-          # Setup GitHub Pages
-          echo "Configuring GitHub Pages..."
-          if ! gh-pages=$(gh api repos/{owner}/{repo}/pages 2>/dev/null); then
-            echo "::warning::GitHub Pages not yet enabled. Enabling now..."
-            gh api repos/{owner}/{repo}/pages -F source.branch=gh-pages --silent || true
-          fi
-          
-          # Upload and deploy
-          echo "Uploading build output (size: ${{ env.BUILD_SIZE }})..."
-          if [[ -d "${{ env.APP_PATH }}/${{ env.BUILD_PATH }}" ]]; then
-            echo "✓ Uploading artifact..."
-            
-            # Deploy to GitHub Pages
-            echo "✓ Deploying to GitHub Pages..."
-            if [[ "${{ steps.deployment.outcome }}" == "success" ]]; then
-              echo "✓ Deployment successful"
-              echo "Site available at: ${{ steps.deployment.outputs.page_url }}"
-            else
-              echo "::error::Deployment failed"
-              exit 1
-            fi
-          else
+          echo "::group::Verifying build output"
+          if [[ ! -d "${{ env.APP_PATH }}/${{ env.BUILD_PATH }}" ]]; then
             echo "::error::Build output directory not found"
             exit 1
           fi
+          echo "✓ Build output verified (size: ${{ env.BUILD_SIZE }})"
           echo "::endgroup::"
 
-      # Keep these actions as they handle the actual deployment
       - name: Setup GitHub Pages
         uses: actions/configure-pages@v5
         with:
