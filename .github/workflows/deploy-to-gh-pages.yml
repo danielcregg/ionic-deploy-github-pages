@@ -140,23 +140,24 @@ jobs:
           cp index.html 404.html
           
           # Add routing handlers more efficiently
-          tee -a 404.html index.html > /dev/null <<'EOF'
-          <script>
-            // GitHub Pages routing handler
-            (function() {
-              var redirect = sessionStorage.redirect;
-              delete sessionStorage.redirect;
-              if (redirect && redirect != location.href) {
-                history.replaceState(null, null, redirect);
-              }
-              
-              var l = location.href;
-              if (l.indexOf("?") > -1) {
-                sessionStorage.redirect = l.substr(0, l.indexOf("?"));
-              }
-            })();
-          </script>
-EOF
+          for file in 404.html index.html; do
+            sed -i '/<head>/a\
+            <script>\
+              // GitHub Pages routing handler\
+              (function() {\
+                var redirect = sessionStorage.redirect;\
+                delete sessionStorage.redirect;\
+                if (redirect && redirect != location.href) {\
+                  history.replaceState(null, null, redirect);\
+                }\
+                \
+                var l = location.href;\
+                if (l.indexOf("?") > -1) {\
+                  sessionStorage.redirect = l.substr(0, l.indexOf("?"));\
+                }\
+              })();\
+            </script>' $file
+          done
           
           echo "✅ Build completed successfully"
 
