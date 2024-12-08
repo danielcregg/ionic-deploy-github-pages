@@ -69,9 +69,12 @@ jobs:
         id: node-version
         run: |
           if [ -f "${{ env.APP_PATH }}/.nvmrc" ]; then
-            NODE_VERSION=$(cat "${{ env.APP_PATH }}/.nvmrc")
+            NODE_VERSION=$(cat "${{ env.APP_PATH }}/.nvmrc" | tr -d '\n')
           elif [ -f "${{ env.APP_PATH }}/package.json" ]; then
-            NODE_VERSION=$(jq -r '.engines.node' "${{ env.APP_PATH }}/package.json" || echo '18')
+            NODE_VERSION=$(grep -oP '"node"\s*:\s*"[^"]+"' "${{ env.APP_PATH }}/package.json" | grep -oP '\d+(\.\d+)*' | head -n1)
+            if [ -z "$NODE_VERSION" ]; then
+              NODE_VERSION='18'
+            fi
           else
             NODE_VERSION='18'
           fi
