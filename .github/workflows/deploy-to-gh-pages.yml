@@ -53,32 +53,37 @@ jobs:
       # OPTIMIZATION: Combine environment setup steps
       - name: Setup environment and detect project
         id: setup
+        shell: bash
         run: |
-          # Set environment variables
-          {
-            echo "REPO_NAME=${GITHUB_REPOSITORY##*/}"
-            echo "TIMESTAMP=$(date +%Y%m%d_%H%M%S)"
-            
-            # Find Ionic project directory
-            APP_PATH=$(find . -type f -name ionic.config.json -exec dirname {} \; | head -n 1)
-            if [ -z "$APP_PATH" ]; then
-              echo "❌ Error: No ionic.config.json found"
-              exit 1
-            fi
-            echo "APP_PATH=$APP_PATH"
-            
-            # Detect project type
-            if [ -f "$APP_PATH/src/app/app.config.ts" ] && grep -q "bootstrapApplication" "$APP_PATH/src/main.ts"; then
-              echo "PROJECT_TYPE=standalone"
-            else
-              echo "PROJECT_TYPE=ngmodule"
-            fi
-          } >> $GITHUB_ENV
+          # Set basic environment variables
+          echo "REPO_NAME=${GITHUB_REPOSITORY##*/}" >> $GITHUB_ENV
+          echo "TIMESTAMP=$(date +%Y%m%d_%H%M%S)" >> $GITHUB_ENV
+          
+          # Find Ionic project directory and validate
+          APP_PATH=$(find . -type f -name ionic.config.json -exec dirname {} \; | head -n 1)
+          if [[ -z "$APP_PATH" ]]; then
+            echo "::error::No ionic.config.json found in repository"
+            exit 1
+          fi
+          
+          # Set APP_PATH for other steps
+          echo "APP_PATH=$APP_PATH" >> $GITHUB_ENV
+          
+          # Detect and set project type
+          if [[ -f "$APP_PATH/src/app/app.config.ts" ]] && grep -q "bootstrapApplication" "$APP_PATH/src/main.ts" 2>/dev/null; then
+            echo "PROJECT_TYPE=standalone" >> $GITHUB_ENV
+            PROJECT_TYPE="standalone"
+          else
+            echo "PROJECT_TYPE=ngmodule" >> $GITHUB_ENV
+            PROJECT_TYPE="ngmodule"
+          fi
           
           # Output debug info
-          echo "📂 Project path: $APP_PATH"
-          echo "📦 Project type: $PROJECT_TYPE"
-          echo "🔧 Node $(node -v), NPM $(npm -v)"
+          echo "Repository: ${GITHUB_REPOSITORY##*/}"
+          echo "Project directory: $APP_PATH"
+          echo "Project type: $PROJECT_TYPE"
+          echo "Node version: $(node -v)"
+          echo "NPM version: $(npm -v)"
 
       # OPTIMIZATION: Enhanced caching strategy
       - name: Setup Node.js with caching
