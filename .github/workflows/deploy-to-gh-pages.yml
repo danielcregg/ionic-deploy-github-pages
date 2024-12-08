@@ -95,6 +95,7 @@ jobs:
         run: |
           cd ${{ env.APP_PATH }}
           npm ci --prefer-offline --no-audit
+          npm install -g @ionic/cli
 
       # BUILD PHASE
       - name: Build Ionic application
@@ -105,13 +106,14 @@ jobs:
           # Output versions
           echo "Node.js version: $(node -v)"
           echo "NPM version: $(npm -v)"
-          echo "Ionic CLI version: $(npx ionic --version || echo 'Not installed')"
+          echo "Ionic CLI version: $(ionic --version || echo 'Not installed')"
           
-          # Build the app using npx
-          npx ionic build --configuration=${{ env.ANGULAR_CONFIG }} -- --base-href /${{ env.REPO_NAME }}/ || {
+          # Build the app
+          ionic build --configuration=${{ env.ANGULAR_CONFIG }} -- --base-href /${{ env.REPO_NAME }}/ || {
             echo "❌ Build failed"
             exit 1
           }
+          
           cd www
           
           # Setup routing handlers for GitHub Pages
