@@ -49,7 +49,6 @@ jobs:
           echo "TIMESTAMP=$(date +%Y%m%d_%H%M%S)" >> $GITHUB_ENV
           echo "Node version: $(node -v)"
           echo "NPM version: $(npm -v)"
-
       - name: Detect Ionic project directory
         id: find-ionic
         run: |
@@ -82,7 +81,6 @@ jobs:
           fi
           echo "NODE_VERSION=${NODE_VERSION}" >> $GITHUB_ENV
           echo "Using Node.js version: $NODE_VERSION"
-
       - name: Setup Node.js and NPM cache
         uses: actions/setup-node@v3
         with:
@@ -93,9 +91,6 @@ jobs:
       # DEPENDENCIES PHASE
       - name: Install dependencies
         run: |
-          cd ${{ env.APP_PATH }}
-          npm ci --prefer-offline --no-audit
-          npm install -g @ionic/cli
 
       # BUILD PHASE
       - name: Build Ionic application
@@ -106,14 +101,14 @@ jobs:
           # Output versions
           echo "Node.js version: $(node -v)"
           echo "NPM version: $(npm -v)"
-          echo "Ionic CLI version: $(ionic --version || echo 'Not installed')"
+          echo "Ionic CLI version: $(npx ionic --version || echo 'Not installed')"
           
-          # Build the app
-          ionic build --configuration=${{ env.ANGULAR_CONFIG }} -- --base-href /${{ env.REPO_NAME }}/ || {
+          # Build the app using npx
+          npx ionic build --configuration=${{ env.ANGULAR_CONFIG }} -- --base-href /${{ env.REPO_NAME }}/ || {
             echo "❌ Build failed"
             exit 1
           }
-          
+
           cd www
           
           # Setup routing handlers for GitHub Pages
@@ -147,7 +142,6 @@ jobs:
           </script>' index.html
           
           echo "✅ Build completed successfully"
-
       # VALIDATION PHASE
       - name: Verify build output
         run: |
@@ -156,13 +150,12 @@ jobs:
             exit 1
           fi
           echo "📊 Build size: $(du -sh ${{ env.APP_PATH }}/www | cut -f1)"
-
       # DEPLOYMENT PHASE
       - name: Setup GitHub Pages
         uses: actions/configure-pages@v5
         with:
           enablement: pages
-          
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3  # Revert to v3 as v4 is not available
         with:
@@ -177,24 +170,13 @@ jobs:
       - name: Deployment status
         if: always()
         shell: bash
-        env:
-          DEPLOY_URL: ${{ steps.deployment.outputs.page_url }}
-          NODE_VERSION: ${{ env.NODE_VERSION }}
-          ANGULAR_CONFIG: ${{ env.ANGULAR_CONFIG }}
-          CACHE_KEY_PREFIX: ${{ env.CACHE_KEY_PREFIX }}
-          REPO_NAME: ${{ env.REPO_NAME }}
-          APP_PATH: ${{ env.APP_PATH }}
-          GITHUB_PAGES: 'true'
         run: |
           DEPLOY_OUTCOME="${{ steps.deployment.outcome }}"
-          echo "Checking deployment outcome: $DEPLOY_OUTCOME"
-          
           if [[ "$DEPLOY_OUTCOME" == "success" ]]; then
-              echo "✅ Deployment successful"
-              echo "🌍 Site available at: $DEPLOY_URL"
-          elif [[ "$DEPLOY_OUTCOME" == "skipped" ]]; then
-              echo "⏭️ Deployment skipped"
+            echo "✅ Deployment successful"
+            echo "🌍 Site available at: ${{ steps.deployment.outputs.page_url }}"
+            exit 0
           else
-              echo "❌ Deployment failed"
-              echo "Deployment outcome: $DEPLOY_OUTCOME"
-              exit 1
+            echo "❌ Deployment failed"
+            echo "Deployment outcome: $DEPLOY_OUTCOME"
+            exit 1
