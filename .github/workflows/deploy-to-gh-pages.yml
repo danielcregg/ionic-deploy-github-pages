@@ -7,9 +7,10 @@ on:
     paths-ignore:
       - 'LICENSE'
       - '.gitignore'
+      - 'README.md'
   workflow_dispatch:  # Allow manual trigger
 
-# Required permissions for GitHub Pages
+# Rest of the workflow remains exactly the same...
 permissions:
   contents: write      # Allow writing files
   pages: write
