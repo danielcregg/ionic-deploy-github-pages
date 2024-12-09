@@ -1,14 +1,7 @@
-name: Deploy Ionic App to GitHub Pages
+name: Reusable Ionic Deploy to GitHub Pages
 
 on:
-  push:
-    branches: ["main"]
-    paths-ignore:
-      - 'LICENSE'
-      - '.gitignore'
-      - 'README.md'
-      - '**.md'
-  workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: write
