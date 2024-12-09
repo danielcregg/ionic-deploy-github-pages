@@ -8,7 +8,7 @@ Live Demo of this Ionic App: https://danielcregg.github.io/ionic-deploy-github-p
 ## 🚀 Setup Instructions (2 Steps)
 
 1. **Add the workflow file to your repo**:
-   - Option A: Copy the above GitHub Workflow `.github/workflows/deploy-to-gh-pages-caller.yml` to your Ionic Angular app repository.
+   - Option A: Copy the above GitHub Workflow `.github/workflows/deploy-to-gh-pages-caller.yml` to your Ionic Angular app repository. Please note there are two workflows in the workflows folder `deploy-to-gh-pages-caller.yml` and `deploy-to-gh-pages-reusable.yml`. The caller workflow just calls the reusable workflow. This is so I can make updates to the reusable workflow and as long as you have the caller workflow in your repository you will get the latest updates.
    - Option B: If you are using a terminal and you are in your Ionic Angular app repository you can run the following terminal command:
      ```bash
      mkdir -p .github/workflows && \
