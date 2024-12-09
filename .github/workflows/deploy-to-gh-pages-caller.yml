@@ -12,4 +12,4 @@ on:
 
 jobs:
   deploy:
-    uses: danielcregg/ionic-deploy-github-pages/.github/workflows/deploy-to-gh-pages.yml@main
+    uses: danielcregg/ionic-deploy-github-pages/.github/workflows/deploy-to-gh-pages-reusable.yml@main
