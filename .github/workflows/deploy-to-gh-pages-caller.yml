@@ -1,0 +1,15 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: ["main"]
+    paths-ignore:
+      - 'LICENSE'
+      - '.gitignore'
+      - 'README.md'
+      - '**.md'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    uses: danielcregg/ionic-deploy-github-pages/.github/workflows/deploy-to-gh-pages.yml@main
