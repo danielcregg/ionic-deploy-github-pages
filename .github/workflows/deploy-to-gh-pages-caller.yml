@@ -1,4 +1,4 @@
-name: Deploy to GitHub Pages
+name: Deploy to GitHub Pages Caller
 
 on:
   push:
@@ -9,7 +9,12 @@ on:
       - 'README.md'
       - '**.md'
   workflow_dispatch:
-
+  
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+  
 jobs:
   deploy:
     uses: danielcregg/ionic-deploy-github-pages/.github/workflows/deploy-to-gh-pages-reusable.yml@main
