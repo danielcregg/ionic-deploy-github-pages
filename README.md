@@ -3,6 +3,8 @@
 
 Deploy your Ionic Angular app to GitHub Pages automatically using GitHub Actions.
 
+Live Demo of this Ionic App: https://danielcregg.github.io/ionic-deploy-github-pages/
+
 ## 🚀 Setup Instructions (2 Steps)
 
 1. **Add the workflow file to your repo**:
