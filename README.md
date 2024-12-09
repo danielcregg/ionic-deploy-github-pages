@@ -1,5 +1,5 @@
 # Ionic GitHub Pages Deployment
-[![Deploy Ionic App to GitHub Pages](https://github.com/danielcregg/ionic-deploy-github-pages/actions/workflows/deploy-to-gh-pages.yml/badge.svg)](https://github.com/danielcregg/ionic-deploy-github-pages/actions/workflows/deploy-to-gh-pages.yml)
+[![Deploy Ionic App to GitHub Pages](https://github.com/danielcregg/ionic-deploy-github-pages/actions/workflows/deploy-to-gh-pages-caller.yml/badge.svg)](https://github.com/danielcregg/ionic-deploy-github-pages/actions/workflows/deploy-to-gh-pages-caller.yml)
 
 Deploy your Ionic Angular app to GitHub Pages automatically using GitHub Actions.
 
