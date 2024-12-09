@@ -8,11 +8,11 @@ Live Demo of this Ionic App: https://danielcregg.github.io/ionic-deploy-github-p
 ## 🚀 Setup Instructions (2 Steps)
 
 1. **Add the workflow file to your repo**:
-   - Option A: Copy the above GitHub Workflow `.github/workflows/deploy-to-gh-pages.yml` to your Ionic Angular app repository.
+   - Option A: Copy the above GitHub Workflow `.github/workflows/deploy-to-gh-pages-caller.yml` to your Ionic Angular app repository.
    - Option B: If you are using a terminal and you are in your Ionic Angular app repository you can run the following terminal command:
      ```bash
      mkdir -p .github/workflows && \
-     curl -o .github/workflows/deploy-to-gh-pages.yml https://raw.githubusercontent.com/danielcregg/ionic-deploy-github-pages/main/.github/workflows/deploy-to-gh-pages.yml
+     curl -o .github/workflows/deploy-to-gh-pages-caller.yml https://raw.githubusercontent.com/danielcregg/ionic-deploy-github-pages/main/.github/workflows/deploy-to-gh-pages-caller.yml
      ```
 
 2. **Enable GitHub Pages**:
